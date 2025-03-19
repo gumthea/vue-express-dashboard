@@ -1,0 +1,53 @@
+# dashboard-api
+# Logs
+dashboard-api/logs
+dashboard-api/*.log
+dashboard-api/npm-debug.log*
+dashboard-api/yarn-debug.log*
+dashboard-api/yarn-error.log*
+dashboard-api/pnpm-debug.log*
+dashboard-api/lerna-debug.log*
+
+dashboard-api/node_modules
+dashboard-api/dist
+dashboard-api/dist-ssr
+dashboard-api/*.local
+dashboard-api/package-lock.json
+
+# Editor directories and files
+dashboard-api/.vscode/*
+dashboard-api/!.vscode/extensions.json
+dashboard-api/.idea
+dashboard-api/.DS_Store
+dashboard-api/*.suo
+dashboard-api/*.ntvs*
+dashboard-api/*.njsproj
+dashboard-api/*.sln
+dashboard-api/*.sw?
+
+# dashboard-frontend
+# Logs
+dashboard-frontend/logs
+dashboard-frontend/*.log
+dashboard-frontend/npm-debug.log*
+dashboard-frontend/yarn-debug.log*
+dashboard-frontend/yarn-error.log*
+dashboard-frontend/pnpm-debug.log*
+dashboard-frontend/lerna-debug.log*
+
+dashboard-frontend/node_modules
+dashboard-frontend/dist
+dashboard-frontend/dist-ssr
+dashboard-frontend/*.local
+dashboard-frontend/package-lock.json
+
+# Editor directories and files
+dashboard-frontend/.vscode/*
+dashboard-frontend/!.vscode/extensions.json
+dashboard-frontend/.idea
+dashboard-frontend/.DS_Store
+dashboard-frontend/*.suo
+dashboard-frontend/*.ntvs*
+dashboard-frontend/*.njsproj
+dashboard-frontend/*.sln
+dashboard-frontend/*.sw?
