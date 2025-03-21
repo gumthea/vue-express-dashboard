@@ -8,7 +8,7 @@ producer.on('error', (err) => console.error('Kafka Error:', err));
 const sendToKafka = (topic, message) => {
   const payloads = [{ topic, messages: JSON.stringify(message) }];
   producer.send(payloads, (err, data) => {
-    if (err) console.error(err);
+    if (err) console.error('Gagal mengirim ke Kafka:', err);
     else console.log('Pesan terkirim ke Kafka:', data);
   });
 };
