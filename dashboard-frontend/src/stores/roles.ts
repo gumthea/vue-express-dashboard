@@ -1,20 +1,11 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import type { Role } from '../types/authTypes'
 import { useAuthStore } from './auth'
 
-interface Role {
-  id: number
-  name: string
-  description: string
-}
-
-interface RoleState {
-  roles: Role[]
-}
-
-export const useRoleStore = defineStore('roles', {
-  state: (): RoleState => ({
-    roles: [],
+export const useRoleStore = defineStore('role', {
+  state: () => ({
+    roles: [] as Role[],
   }),
 
   actions: {
@@ -23,7 +14,7 @@ export const useRoleStore = defineStore('roles', {
       if (!authStore.token) return
 
       try {
-        const response = await axios.get('http://localhost:5000/roles', {
+        const response = await axios.get('http://localhost:5000/api/roles', {
           headers: { Authorization: `Bearer ${authStore.token}` },
         })
         this.roles = response.data
@@ -38,7 +29,7 @@ export const useRoleStore = defineStore('roles', {
 
       try {
         await axios.post(
-          'http://localhost:5000/roles',
+          'http://localhost:5000/api/roles',
           { name, description },
           { headers: { Authorization: `Bearer ${authStore.token}` } }
         )
@@ -56,7 +47,7 @@ export const useRoleStore = defineStore('roles', {
 
       try {
         await axios.put(
-          `http://localhost:5000/roles/${id}`,
+          `http://localhost:5000/api/roles/${id}`,
           { name, description },
           { headers: { Authorization: `Bearer ${authStore.token}` } }
         )
@@ -73,7 +64,7 @@ export const useRoleStore = defineStore('roles', {
       if (!authStore.token) return
 
       try {
-        await axios.delete(`http://localhost:5000/roles/${id}`, {
+        await axios.delete(`http://localhost:5000/api/roles/${id}`, {
           headers: { Authorization: `Bearer ${authStore.token}` },
         })
         await this.fetchRoles()

@@ -26,7 +26,7 @@ export const useUserStore = defineStore('user', () => {
     loading.value = true
     try {
       const token = authStore.token
-      const response = await axios.get('http://localhost:5000/users', {
+      const response = await axios.get('http://localhost:5000/api/users', {
         headers: { Authorization: `Bearer ${token}` },
       })
       users.value = response.data
@@ -65,11 +65,11 @@ export const useUserStore = defineStore('user', () => {
       const payload = { username: form.value.username, password: form.value.password, role_id: form.value.roleId }
 
       if (editMode.value) {
-        await axios.put(`http://localhost:5000/users/${form.value.id}`, payload, {
+        await axios.put(`http://localhost:5000/api/users/${form.value.id}`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         })
       } else {
-        await axios.post('http://localhost:5000/users', payload, {
+        await axios.post('http://localhost:5000/api/users', payload, {
           headers: { Authorization: `Bearer ${token}` },
         })
       }
@@ -90,7 +90,7 @@ export const useUserStore = defineStore('user', () => {
     if (confirm('Yakin ingin menghapus pengguna ini?')) {
       try {
         const token = authStore.token
-        await axios.delete(`http://localhost:5000/users/${id}`, {
+        await axios.delete(`http://localhost:5000/api/users/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         fetchUsers()

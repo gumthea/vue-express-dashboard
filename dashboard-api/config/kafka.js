@@ -1,4 +1,5 @@
 const kafka = require('kafka-node');
+
 const client = new kafka.KafkaClient({ kafkaHost: process.env.KAFKA_BROKER });
 const producer = new kafka.Producer(client);
 

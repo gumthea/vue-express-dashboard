@@ -1,5 +1,5 @@
 <template>
-    <div class="flex h-screen bg-gray-100">
+    <div class="flex bg-gray-100">
       <!-- Sidebar -->
       <div
         :class="[
@@ -13,6 +13,7 @@
         </div>
         <nav class="mt-6">
           <router-link
+            v-if="permissionStore.hasPermission('view_dashboard')"
             to="/dashboard"
             class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition"
             active-class="bg-blue-500 text-white"
@@ -21,7 +22,7 @@
             Dashboard
           </router-link>
           <router-link 
-            v-if="roleStore.hasRole('admin')" 
+            v-if="permissionStore.hasPermission('manage_users')" 
             to="/users" 
             class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition" 
             active-class="bg-blue-500 text-white"
@@ -30,7 +31,7 @@
             Manajemen Pengguna
           </router-link>
           <router-link 
-            v-if="roleStore.hasRole('admin')" 
+            v-if="permissionStore.hasPermission('manage_roles')" 
             to="/roles" 
             class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition" 
             active-class="bg-blue-500 text-white"
@@ -39,7 +40,7 @@
             Manajemen Role
           </router-link>
           <router-link
-            v-if="roleStore.hasRole('admin')"
+            v-if="permissionStore.hasPermission('view_audit_trail')"
             to="/audit-trail"
             class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition"
             active-class="bg-blue-500 text-white"
@@ -58,7 +59,7 @@
       ></div>
   
       <!-- Main Content -->
-      <div class="flex-1 flex flex-col">
+      <div class="flex-1 flex flex-col" style="width: calc(100% - 16rem);">
         <!-- Topbar -->
         <div class="bg-white shadow p-4 flex justify-between items-center">
           <div class="flex items-center">
@@ -94,6 +95,7 @@
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '../stores/auth'
   import { useRoleStore } from '../stores/roles'
+  import { usePermissionStore } from '../stores/permissions'
   import { HomeIcon, UserIcon, DocumentTextIcon, Bars3Icon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
   
   export default defineComponent({
@@ -110,6 +112,7 @@
       const route = useRoute()
       const authStore = useAuthStore()
       const roleStore = useRoleStore()
+      const permissionStore = usePermissionStore()
       const routeName = route.name?.toString() || 'Dashboard'
       const sidebarOpen = ref(false)
   
@@ -122,7 +125,7 @@
         router.push('/')
       }
   
-      return { authStore, roleStore, routeName, logout, sidebarOpen, toggleSidebar }
+      return { authStore, roleStore, permissionStore, routeName, logout, sidebarOpen, toggleSidebar }
     },
   })
 </script>

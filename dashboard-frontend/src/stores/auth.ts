@@ -1,32 +1,23 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
+import type { JwtPayload, AuthState } from '../types/authTypes'
 import { useRoleStore } from './roles'
-
-interface JwtPayload {
-  userId: number
-  username: string
-  roleId: number
-  exp: number
-}
-
-interface AuthState {
-  token: string | null
-  user: JwtPayload | null
-  isAuthenticated: boolean
-}
+import { usePermissionStore } from './permissions'
 
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     token: localStorage.getItem('token') || null,
     user: null,
     isAuthenticated: false,
+    roles: [],
+    permissions: [],
   }),
 
   actions: {
     async login(username: string, password: string) {
       try {
-        const { data } = await axios.post('http://localhost:5000/login', { username, password })
+        const { data } = await axios.post('http://localhost:5000/api/auth/login', { username, password })
         this.setToken(data.token)
       } catch (error) {
         console.error('Login failed:', error)
@@ -42,6 +33,8 @@ export const useAuthStore = defineStore('auth', {
       
       const roleStore = useRoleStore()
       roleStore.fetchRoles()
+      const permissionStore = usePermissionStore()
+      permissionStore.fetchPermissions()
     },
 
     async checkAuth() {
@@ -57,7 +50,7 @@ export const useAuthStore = defineStore('auth', {
       }
 
       try {
-        const response = await axios.get('http://localhost:5000/dashboard-data', {
+        const response = await axios.get('http://localhost:5000/api/dashboard', {
           headers: { Authorization: `Bearer ${this.token}` },
         })
         this.isAuthenticated = response.status === 200
@@ -79,6 +72,8 @@ export const useAuthStore = defineStore('auth', {
 
       const roleStore = useRoleStore()
       roleStore.clearRoles()
+      const permissionStore = usePermissionStore()
+      permissionStore.clearPermissions()
     },
   },
 
