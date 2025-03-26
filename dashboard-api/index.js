@@ -52,8 +52,9 @@ const verifyToken = async (req, res, next) => {
 };
 
 // Middleware untuk cek role admin
-const isAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
+const isAdmin = async (req, res, next) => {
+  const [roles] = await db.query('SELECT name FROM roles WHERE id = ?', [req.user.roleId]);
+  if (roles.length === 0 || roles[0].name !== 'admin') {
     return res.status(403).json({ message: 'Hanya admin yang diizinkan' });
   }
   next();
@@ -69,7 +70,7 @@ app.post('/login', async (req, res) => {
     }
 
     // Ambil data pengguna dari database
-    const [users] = await db.query('SELECT id, username, password, role FROM users WHERE username = ?', [username]);
+    const [users] = await db.query('SELECT id, username, password, role_id FROM users WHERE username = ?', [username]);
     if (!users || users.length === 0) {
       return res.status(401).json({ message: 'Login gagal: Pengguna tidak ditemukan' });
     }
@@ -81,8 +82,8 @@ app.post('/login', async (req, res) => {
     }
 
     const userId = user.id;
-    const role = user.role;
-    const token = jwt.sign({ userId, username, role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const roleId = user.role_id;
+    const token = jwt.sign({ userId, username, roleId }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     // Nonaktifkan sesi lama
     await db.query('UPDATE sessions SET status = "inactive" WHERE user_id = ?', [userId]);
@@ -120,10 +121,12 @@ app.post('/logout', verifyToken, async (req, res) => {
 
 // Endpoint Dashboard Data
 app.get('/dashboard-data', verifyToken, async (req, res) => {
-  const { userId, username, role } = req.user;
-  if (role === 'admin' || role === 'editor') {
+  const { userId, username, roleId } = req.user;
+  const [roles] = await db.query('SELECT name FROM roles WHERE id = ?', [roleId]);
+  const role = roles[0].name;
+  if (role === 'admin' || role === 'editor' || role === 'viewer') {
     await logAuditTrail(userId, username, 'ACCESS_DASHBOARD', { message: 'Accessed dashboard data' });
-    res.json({ message: 'Data dashboard untuk admin/editor', data: [] });
+    res.json({ message: 'Data dashboard', data: [] });
   } else {
     res.status(403).json({ message: 'Akses ditolak' });
   }
@@ -131,7 +134,9 @@ app.get('/dashboard-data', verifyToken, async (req, res) => {
 
 // Endpoint Audit Trail
 app.get('/audit-trail', verifyToken, async (req, res) => {
-  const { role, userId, username } = req.user;
+  const { userId, username, roleId } = req.user;
+  const [roles] = await db.query('SELECT name FROM roles WHERE id = ?', [roleId]);
+  const role = roles[0].name;
   if (role !== 'admin') {
     return res.status(403).json({ message: 'Hanya admin yang bisa melihat audit trail' });
   }
@@ -147,10 +152,10 @@ app.get('/audit-trail', verifyToken, async (req, res) => {
 // CRUD Users
 // Create User
 app.post('/users', verifyToken, isAdmin, async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, roleId } = req.body;
   try {
     // Validasi input
-    if (!username || !password || !role) {
+    if (!username || !password || !roleId) {
       return res.status(400).json({ message: 'Username, password, dan role tidak boleh kosong' });
     }
     if (password.length < 6) {
@@ -164,9 +169,9 @@ app.post('/users', verifyToken, isAdmin, async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10); // Hash password
-    await db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, role]);
+    await db.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, roleId]);
     const [user] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
-    await logAuditTrail(req.user.userId, req.user.username, 'CREATE_USER', { userId: user[0].id, username, role });
+    await logAuditTrail(req.user.userId, req.user.username, 'CREATE_USER', { userId: user[0].id, username, roleId });
     res.status(201).json({ message: 'Pengguna berhasil dibuat' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -176,7 +181,7 @@ app.post('/users', verifyToken, isAdmin, async (req, res) => {
 // Read All Users
 app.get('/users', verifyToken, isAdmin, async (req, res) => {
   try {
-    const [users] = await db.query('SELECT id, username, role FROM users');
+    const [users] = await db.query('SELECT id, username, role_id FROM users');
     await logAuditTrail(req.user.userId, req.user.username, 'READ_USERS', { message: 'Viewed all users' });
     res.json(users);
   } catch (err) {
@@ -187,10 +192,10 @@ app.get('/users', verifyToken, isAdmin, async (req, res) => {
 // Update User
 app.put('/users/:id', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
-  const { username, password, role } = req.body;
+  const { username, password, roleId } = req.body;
   try {
     // Validasi input
-    if (!username && !password && !role) {
+    if (!username && !password && !roleId) {
       return res.status(400).json({ message: 'Setidaknya satu field (username, password, atau role) harus diisi' });
     }
     if (password && password.length < 6) {
@@ -208,7 +213,7 @@ app.put('/users/:id', verifyToken, isAdmin, async (req, res) => {
     const updates = {};
     if (username) updates.username = username;
     if (password) updates.password = await bcrypt.hash(password, 10);
-    if (role) updates.role = role;
+    if (roleId) updates.role_id = roleId;
 
     const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const values = Object.values(updates);
@@ -233,5 +238,60 @@ app.delete('/users/:id', verifyToken, isAdmin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// CRUD Roles
+// Read All Roles
+app.get('/roles', verifyToken, async (req, res) => {
+  try {
+    const [roles] = await db.query('SELECT id, name, description FROM roles');
+    res.json(roles);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create Role
+app.post('/roles', verifyToken, isAdmin, async (req, res) => {
+  const { name, description } = req.body;
+  try {
+    if (!name) return res.status(400).json({ message: 'Nama role tidak boleh kosong' });
+    const [existing] = await db.query('SELECT id FROM roles WHERE name = ?', [name]);
+    if (existing.length > 0) return res.status(400).json({ message: 'Nama role sudah digunakan' });
+    await db.query('INSERT INTO roles (name, description) VALUES (?, ?)', [name, description || null]);
+    res.status(201).json({ message: 'Role berhasil dibuat' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Role
+app.put('/roles/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { name, description } = req.body;
+  try {
+    if (!name) return res.status(400).json({ message: 'Nama role tidak boleh kosong' });
+    const [existing] = await db.query('SELECT id FROM roles WHERE name = ? AND id != ?', [name, id]);
+    if (existing.length > 0) return res.status(400).json({ message: 'Nama role sudah digunakan' });
+    await db.query('UPDATE roles SET name = ?, description = ? WHERE id = ?', [name, description || null, id]);
+    res.json({ message: 'Role berhasil diperbarui' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Role
+app.delete('/roles/:id', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [users] = await db.query('SELECT id FROM users WHERE role_id = ?', [id]);
+    if (users.length > 0) return res.status(400).json({ message: 'Role tidak bisa dihapus karena masih digunakan oleh pengguna' });
+    await db.query('DELETE FROM roles WHERE id = ?', [id]);
+    res.json({ message: 'Role berhasil dihapus' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 app.listen(process.env.PORT, () => console.log('Server berjalan di port: ' + process.env.PORT));

@@ -3,7 +3,7 @@
     <!-- Form Tambah/Edit Pengguna -->
     <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
       <h2 class="text-xl font-semibold mb-4">{{ editMode ? 'Edit Pengguna' : 'Tambah Pengguna' }}</h2>
-      <form @submit.prevent="submitUser">
+      <form @submit.prevent="userStore.submitUser">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input
             v-model="form.username"
@@ -20,13 +20,13 @@
             :class="{ 'border-red-500': errors.password }"
           />
           <select
-            v-model="form.role"
+            v-model="form.roleId"
             class="p-3 border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            :class="{ 'border-red-500': errors.role }"
+            :class="{ 'border-red-500': errors.roleId }"
           >
-            <option value="admin">Admin</option>
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
+            <option v-for="role in roleStore.availableRoles" :key="role.id" :value="role.id">
+              {{ role.name }}
+            </option>
           </select>
         </div>
         <div v-if="Object.keys(errors).length > 0" class="mt-3 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
@@ -45,7 +45,7 @@
           <button
             v-if="editMode"
             type="button"
-            @click="cancelEdit"
+            @click="userStore.resetForm"
             class="bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600 transition"
           >
             Batal
@@ -73,10 +73,10 @@
             <tr v-for="user in users" :key="user.id" class="border-b">
               <td class="py-3 px-6">{{ user.id }}</td>
               <td class="py-3 px-6">{{ user.username }}</td>
-              <td class="py-3 px-6">{{ user.role }}</td>
+              <td class="py-3 px-6">{{ getRoleName(user.role_id) }}</td>
               <td class="py-3 px-6">
-                <button @click="editUser(user)" class="text-blue-500 hover:underline mr-2">Edit</button>
-                <button @click="deleteUser(user.id)" class="text-red-500 hover:underline">Hapus</button>
+                <button @click="userStore.editUser(user)" class="text-blue-500 hover:underline mr-2">Edit</button>
+                <button @click="userStore.deleteUser(user.id)" class="text-red-500 hover:underline">Hapus</button>
               </td>
             </tr>
           </tbody>
@@ -87,118 +87,42 @@
 </template>
 
 <script lang="ts">
-// Script tetap sama seperti sebelumnya
-import { defineComponent, ref, onMounted } from 'vue'
-import axios from 'axios'
-
-interface User {
-  id: number
-  username: string
-  role: string
-}
+import { defineComponent, computed, onMounted } from 'vue'
+import { useUserStore } from '../stores/users'
+import { useRoleStore } from '../stores/roles'
+import { storeToRefs } from 'pinia'
 
 export default defineComponent({
   name: 'UserManagement',
   setup() {
-    const users = ref<User[]>([])
-    const loading = ref(true)
-    const editMode = ref(false)
-    const errors = ref<{ [key: string]: string }>({})
-    const form = ref({
-      id: 0,
-      username: '',
-      password: '',
-      role: 'viewer' as 'admin' | 'editor' | 'viewer',
+    const userStore = useUserStore()
+    const roleStore = useRoleStore()
+
+    // Menggunakan storeToRefs agar state tetap reaktif
+    const { users, loading, form, editMode, errors } = storeToRefs(userStore)
+
+    // Fungsi untuk mendapatkan nama role berdasarkan ID
+    const getRoleName = (roleId: number) => {
+      const role = roleStore.availableRoles.find(r => r.id === roleId)
+      return role?.name || 'Unknown'
+    }
+
+    // Panggil fetch data saat komponen dimuat
+    onMounted(() => {
+      userStore.fetchUsers()
+      roleStore.fetchRoles()
     })
 
-    const fetchUsers = async () => {
-      try {
-        const token = localStorage.getItem('token')
-        const response = await axios.get('http://localhost:5000/users', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        users.value = response.data
-      } catch (err) {
-        console.error('Gagal mengambil pengguna:', err)
-      } finally {
-        loading.value = false
-      }
+    return {
+      userStore,
+      roleStore,
+      users,
+      loading,
+      form,
+      editMode,
+      errors,
+      getRoleName,
     }
-
-    const validateForm = () => {
-      const newErrors: { [key: string]: string } = {};
-      if (!editMode.value) {
-        if (!form.value.username) newErrors.username = 'Username tidak boleh kosong';
-        if (!form.value.password) newErrors.password = 'Password tidak boleh kosong';
-        if (!form.value.role) newErrors.role = 'Role tidak boleh kosong';
-        if (form.value.password && form.value.password.length < 6) {
-          newErrors.password = 'Password minimal 6 karakter';
-        }
-      } else {
-        if (!form.value.username && !form.value.password && !form.value.role) {
-          newErrors.general = 'Setidaknya satu field harus diisi';
-        }
-        if (form.value.password && form.value.password.length < 6) {
-          newErrors.password = 'Password minimal 6 karakter';
-        }
-      }
-      errors.value = newErrors;
-      return Object.keys(newErrors).length === 0;
-    }
-
-    const submitUser = async () => {
-      if (!validateForm()) return;
-
-      try {
-        const token = localStorage.getItem('token')
-        if (editMode.value) {
-          await axios.put(`http://localhost:5000/users/${form.value.id}`, form.value, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        } else {
-          await axios.post('http://localhost:5000/users', form.value, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        }
-        resetForm()
-        fetchUsers()
-      } catch (err) {
-        errors.value = { general: (err as any).response?.data?.message || 'Gagal menyimpan pengguna' };
-      }
-    }
-
-    const editUser = (user: User) => {
-      editMode.value = true
-      form.value = { id: user.id, username: user.username, password: '', role: user.role as 'admin' | 'editor' | 'viewer' }
-    }
-
-    const deleteUser = async (id: number) => {
-      if (confirm('Yakin ingin menghapus pengguna ini?')) {
-        try {
-          const token = localStorage.getItem('token')
-          await axios.delete(`http://localhost:5000/users/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          fetchUsers()
-        } catch (err) {
-          console.error('Gagal menghapus pengguna:', err)
-        }
-      }
-    }
-
-    const resetForm = () => {
-      editMode.value = false
-      errors.value = {}
-      form.value = { id: 0, username: '', password: '', role: 'viewer' }
-    }
-
-    const cancelEdit = () => {
-      resetForm()
-    }
-
-    onMounted(fetchUsers)
-
-    return { users, loading, editMode, form, errors, submitUser, editUser, deleteUser, cancelEdit }
   },
 })
 </script>

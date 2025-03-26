@@ -20,17 +20,26 @@
             <HomeIcon class="h-5 w-5 mr-2" />
             Dashboard
           </router-link>
-          <router-link
-            v-if="hasRole('admin')"
-            to="/users"
-            class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition"
+          <router-link 
+            v-if="roleStore.hasRole('admin')" 
+            to="/users" 
+            class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition" 
             active-class="bg-blue-500 text-white"
           >
             <UserIcon class="h-5 w-5 mr-2" />
             Manajemen Pengguna
           </router-link>
+          <router-link 
+            v-if="roleStore.hasRole('admin')" 
+            to="/roles" 
+            class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition" 
+            active-class="bg-blue-500 text-white"
+          >
+            <ShieldCheckIcon class="h-5 w-5 mr-2" /> 
+            Manajemen Role
+          </router-link>
           <router-link
-            v-if="hasRole('admin')"
+            v-if="roleStore.hasRole('admin')"
             to="/audit-trail"
             class="flex items-center py-3 px-6 text-gray-700 hover:bg-blue-500 hover:text-white transition"
             active-class="bg-blue-500 text-white"
@@ -62,7 +71,7 @@
             <h2 class="text-xl font-semibold text-gray-800 ml-2">{{ routeName }}</h2>
           </div>
           <div class="flex items-center space-x-4">
-            <span class="text-gray-700">Selamat datang, {{ username }}</span>
+            <span class="text-gray-700">Selamat datang, {{ authStore.currentUser?.username || 'User' }}</span>
             <button
               @click="logout"
               class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
@@ -81,11 +90,11 @@
   </template>
   
   <script lang="ts">
-  import { defineComponent, computed, ref } from 'vue'
+  import { defineComponent, ref } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { getUserData, hasRole } from '../utils/auth'
-  import axios from 'axios'
-  import { HomeIcon, UserIcon, DocumentTextIcon, Bars3Icon } from '@heroicons/vue/24/outline'
+  import { useAuthStore } from '../stores/auth'
+  import { useRoleStore } from '../stores/roles'
+  import { HomeIcon, UserIcon, DocumentTextIcon, Bars3Icon, ShieldCheckIcon } from '@heroicons/vue/24/outline'
   
   export default defineComponent({
     name: 'MainLayout',
@@ -94,35 +103,26 @@
       UserIcon,
       DocumentTextIcon,
       Bars3Icon,
+      ShieldCheckIcon,
     },
     setup() {
       const router = useRouter()
       const route = useRoute()
-      const userData = getUserData()
-      const username = computed(() => userData?.username || 'User')
-      const routeName = computed(() => route.name?.toString() || 'Dashboard')
+      const authStore = useAuthStore()
+      const roleStore = useRoleStore()
+      const routeName = route.name?.toString() || 'Dashboard'
       const sidebarOpen = ref(false)
   
       const toggleSidebar = () => {
         sidebarOpen.value = !sidebarOpen.value
       }
   
-      const logout = async () => {
-        try {
-          const token = localStorage.getItem('token')
-          await axios.post('http://localhost:5000/logout', {}, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          localStorage.removeItem('token')
-          router.push('/')
-        } catch (err) {
-          console.error('Gagal logout:', err)
-          localStorage.removeItem('token')
-          router.push('/')
-        }
+      const logout = () => {
+        authStore.logout()
+        router.push('/')
       }
   
-      return { username, routeName, hasRole, logout, sidebarOpen, toggleSidebar }
+      return { authStore, roleStore, routeName, logout, sidebarOpen, toggleSidebar }
     },
   })
 </script>
